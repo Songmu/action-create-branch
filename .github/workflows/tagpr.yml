@@ -1,0 +1,29 @@
+name: tagpr
+on:
+  push:
+    branches:
+    - main
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  tagpr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+    - uses: actions/checkout@v4
+    - id: tagpr
+      uses: Songmu/tagpr@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - uses: ./.github/actions/release
+      with:
+        tag: ${{ steps.tagpr.outputs.tag }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: "steps.tagpr.outputs.tag != ''"
+
