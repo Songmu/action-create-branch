@@ -60,47 +60,47 @@ if [ "$IS_ABS_REF" = true ]; then
     BASE_SHA=$(gh api "repos/$INPUT_REPOSITORY/git/$BASE_REF" \
         --jq '.object.sha // empty')
 else
-    # Check if BASE_REF looks like a SHA (7-40 hex chars)
-    if [[ "$BASE_REF" =~ ^[a-f0-9]{7,40}$ ]]; then
-        # Use GraphQL with commit object for SHA
-        BASE_SHA=$(gh api graphql \
-            -f query='query($owner: String!, $repo: String!, $ref: GitObjectID!, $branchRef: String!, $tagRef: String!) {
-                repository(owner: $owner, name: $repo) {
+    # Build GraphQL query based on whether BASE_REF looks like a SHA
+    COMMON_FIELDS='
                     branch: ref(qualifiedName: $branchRef) {
                         target { oid }
                     }
                     tag: ref(qualifiedName: $tagRef) {
                         target { oid }
-                    }
-                    commit: object(oid: $ref) {
+                    }'
+
+    if [[ "$BASE_REF" =~ ^[a-f0-9]{7,40}$ ]]; then
+        # Include commit object for SHA
+        QUERY="query(\$owner: String!, \$repo: String!, \$ref: GitObjectID!, \$branchRef: String!, \$tagRef: String!) {
+                repository(owner: \$owner, name: \$repo) {$COMMON_FIELDS
+                    commit: object(oid: \$ref) {
                         ... on Commit { oid }
                     }
                 }
-            }' \
+            }"
+        JQ_FILTER='.data.repository.branch.target.oid // .data.repository.tag.target.oid // .data.repository.commit.oid // empty'
+        BASE_SHA=$(gh api graphql \
+            -f query="$QUERY" \
             -f owner="$OWNER" \
             -f repo="$REPO" \
             -f ref="$BASE_REF" \
             -f branchRef="refs/heads/$BASE_REF" \
             -f tagRef="refs/tags/$BASE_REF" \
-            --jq '.data.repository.branch.target.oid // .data.repository.tag.target.oid // .data.repository.commit.oid // empty')
+            --jq "$JQ_FILTER")
     else
-        # Use GraphQL without commit object for branch/tag names
-        BASE_SHA=$(gh api graphql \
-            -f query='query($owner: String!, $repo: String!, $branchRef: String!, $tagRef: String!) {
-                repository(owner: $owner, name: $repo) {
-                    branch: ref(qualifiedName: $branchRef) {
-                        target { oid }
-                    }
-                    tag: ref(qualifiedName: $tagRef) {
-                        target { oid }
-                    }
+        # Branch/tag names only
+        QUERY="query(\$owner: String!, \$repo: String!, \$branchRef: String!, \$tagRef: String!) {
+                repository(owner: \$owner, name: \$repo) {$COMMON_FIELDS
                 }
-            }' \
+            }"
+        JQ_FILTER='.data.repository.branch.target.oid // .data.repository.tag.target.oid // empty'
+        BASE_SHA=$(gh api graphql \
+            -f query="$QUERY" \
             -f owner="$OWNER" \
             -f repo="$REPO" \
             -f branchRef="refs/heads/$BASE_REF" \
             -f tagRef="refs/tags/$BASE_REF" \
-            --jq '.data.repository.branch.target.oid // .data.repository.tag.target.oid // empty')
+            --jq "$JQ_FILTER")
     fi
 fi
 
