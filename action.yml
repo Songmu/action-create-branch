@@ -1,5 +1,5 @@
-name: 'Create Branch'
-description: 'Create a new branch in the specified repository'
+name: 'Fast Branch Creation without Checkout'
+description: 'Create new git branches instantly using GitHub API without checkout. Supports any ref source and cross-repository creation.'
 author: 'Songmu'
 branding:
   icon: 'git-branch'

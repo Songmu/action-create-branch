@@ -1,9 +1,10 @@
-# Create Branch Action
+# action-create-branch
 
-A GitHub Action to create a new branch in a repository.
+A fast GitHub Action to create a new branch in a repository without checkout. Uses GitHub API directly for maximum performance.
 
 ## Features
 
+- ⚡ **Fast execution**: No checkout required - uses GitHub API directly
 - ✅ Create a new branch from any reference (branch, tag, or commit SHA)
 - ✅ Skip creation if branch already exists (idempotent operation)
 - ✅ Automatic token handling with `github.token`
