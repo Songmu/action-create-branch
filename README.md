@@ -18,7 +18,7 @@ A fast GitHub Action to create a new branch in a repository without checkout. Us
 
 ```yaml
 - name: Create feature branch
-  uses: Songmu/action-create-branch@v1
+  uses: Songmu/action-create-branch@v0
   with:
     branch: feature/new-feature
 ```
@@ -28,7 +28,7 @@ A fast GitHub Action to create a new branch in a repository without checkout. Us
 ```yaml
 - name: Create branch from specific ref
   id: create-branch
-  uses: Songmu/action-create-branch@v1
+  uses: Songmu/action-create-branch@v0
   with:
     token: ${{ secrets.GITHUB_TOKEN }}
     repository: owner/repo
@@ -44,7 +44,7 @@ A fast GitHub Action to create a new branch in a repository without checkout. Us
 
 ```yaml
 - name: Create branch in another repository
-  uses: Songmu/action-create-branch@v1
+  uses: Songmu/action-create-branch@v0
   with:
     token: ${{ secrets.PAT_TOKEN }}  # Needs write access to target repo
     repository: another-owner/another-repo
@@ -95,7 +95,7 @@ jobs:
       contents: write
     steps:
       - name: Create release branch
-        uses: Songmu/action-create-branch@v1
+        uses: Songmu/action-create-branch@v0
         with:
           branch: release/v${{ github.event.inputs.version }}
           ref: develop
@@ -105,7 +105,7 @@ jobs:
 
 ```yaml
 - name: Create hotfix branch from tag
-  uses: Songmu/action-create-branch@v1
+  uses: Songmu/action-create-branch@v0
   with:
     branch: hotfix/urgent-fix
     ref: v1.0.0
@@ -115,7 +115,7 @@ jobs:
 
 ```yaml
 - name: Create branch from specific commit
-  uses: Songmu/action-create-branch@v1
+  uses: Songmu/action-create-branch@v0
   with:
     branch: feature/from-commit
     ref: a1b2c3d4e5f6789
@@ -126,7 +126,7 @@ jobs:
 ```yaml
 - name: Create branch if needed
   id: create
-  uses: Songmu/action-create-branch@v1
+  uses: Songmu/action-create-branch@v0
   with:
     branch: auto-generated-branch
 
