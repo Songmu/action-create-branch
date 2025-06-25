@@ -60,27 +60,48 @@ if [ "$IS_ABS_REF" = true ]; then
     BASE_SHA=$(gh api "repos/$INPUT_REPOSITORY/git/$BASE_REF" \
         --jq '.object.sha // empty')
 else
-    # Use GraphQL to check all possibilities in a single request
-    BASE_SHA=$(gh api graphql \
-        -f query='query($owner: String!, $repo: String!, $ref: String!, $branchRef: String!, $tagRef: String!) {
-            repository(owner: $owner, name: $repo) {
-                branch: ref(qualifiedName: $branchRef) {
-                    target { oid }
+    # Check if BASE_REF looks like a SHA (7-40 hex chars)
+    if [[ "$BASE_REF" =~ ^[a-f0-9]{7,40}$ ]]; then
+        # Use GraphQL with commit object for SHA
+        BASE_SHA=$(gh api graphql \
+            -f query='query($owner: String!, $repo: String!, $ref: GitObjectID!, $branchRef: String!, $tagRef: String!) {
+                repository(owner: $owner, name: $repo) {
+                    branch: ref(qualifiedName: $branchRef) {
+                        target { oid }
+                    }
+                    tag: ref(qualifiedName: $tagRef) {
+                        target { oid }
+                    }
+                    commit: object(oid: $ref) {
+                        ... on Commit { oid }
+                    }
                 }
-                tag: ref(qualifiedName: $tagRef) {
-                    target { oid }
+            }' \
+            -f owner="$OWNER" \
+            -f repo="$REPO" \
+            -f ref="$BASE_REF" \
+            -f branchRef="refs/heads/$BASE_REF" \
+            -f tagRef="refs/tags/$BASE_REF" \
+            --jq '.data.repository.branch.target.oid // .data.repository.tag.target.oid // .data.repository.commit.oid // empty')
+    else
+        # Use GraphQL without commit object for branch/tag names
+        BASE_SHA=$(gh api graphql \
+            -f query='query($owner: String!, $repo: String!, $branchRef: String!, $tagRef: String!) {
+                repository(owner: $owner, name: $repo) {
+                    branch: ref(qualifiedName: $branchRef) {
+                        target { oid }
+                    }
+                    tag: ref(qualifiedName: $tagRef) {
+                        target { oid }
+                    }
                 }
-                commit: object(oid: $ref) {
-                    ... on Commit { oid }
-                }
-            }
-        }' \
-        -f owner="$OWNER" \
-        -f repo="$REPO" \
-        -f ref="$BASE_REF" \
-        -f branchRef="refs/heads/$BASE_REF" \
-        -f tagRef="refs/tags/$BASE_REF" \
-        --jq '.data.repository.branch.target.oid // .data.repository.tag.target.oid // .data.repository.commit.oid // empty')
+            }' \
+            -f owner="$OWNER" \
+            -f repo="$REPO" \
+            -f branchRef="refs/heads/$BASE_REF" \
+            -f tagRef="refs/tags/$BASE_REF" \
+            --jq '.data.repository.branch.target.oid // .data.repository.tag.target.oid // empty')
+    fi
 fi
 
 if [ -z "$BASE_SHA" ]; then
