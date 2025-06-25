@@ -1,4 +1,4 @@
-name: 'Fast Branch Creation without Checkout'
+name: Create Branch from any refs without Checkout
 description: >
   Create git branches instantly using GitHub API without checkout.
   Supports any ref and cross-repository creation.
