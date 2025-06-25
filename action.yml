@@ -7,7 +7,8 @@ branding:
 inputs:
   token:
     description: 'GitHub token with write access to the repository'
-    required: true
+    required: false
+    default: ${{ github.token }}
   repository:
     description: 'Repository name with owner. For example, actions/checkout'
     required: false
@@ -31,7 +32,7 @@ runs:
       shell: bash
       run: ${{ github.action_path }}/entrypoint.sh
       env:
-        GITHUB_TOKEN: ${{ inputs.token }}
-        REPOSITORY: ${{ inputs.repository }}
-        BRANCH_NAME: ${{ inputs.branch }}
-        REF: ${{ inputs.ref }}
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_REPOSITORY: ${{ inputs.repository }}
+        INPUT_BRANCH: ${{ inputs.branch }}
+        INPUT_REF: ${{ inputs.ref }}
