@@ -1,5 +1,7 @@
 name: 'Fast Branch Creation without Checkout'
-description: 'Create git branches instantly using GitHub API without checkout. Supports any ref and cross-repository creation.'
+description: >
+  Create git branches instantly using GitHub API without checkout.
+  Supports any ref and cross-repository creation.
 author: 'Songmu'
 branding:
   icon: 'git-branch'
