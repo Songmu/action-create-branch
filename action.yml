@@ -19,10 +19,15 @@ inputs:
     description: 'The ref (branch/tag/commit) to create the new branch from'
     required: false
     default: ${{ github.ref }}
+outputs:
+  created:
+    description: 'Whether the branch was created (true) or already existed (false)'
+    value: ${{ steps.create.outputs.created }}
 runs:
   using: 'composite'
   steps:
     - name: Create branch
+      id: create
       shell: bash
       run: ${{ github.action_path }}/entrypoint.sh
       env:

@@ -28,6 +28,15 @@ fi
 OWNER=$(echo "$REPOSITORY" | cut -d'/' -f1)
 REPO=$(echo "$REPOSITORY" | cut -d'/' -f2)
 
+# Check if branch already exists
+echo "Checking if branch '$BRANCH_NAME' already exists..."
+if gh api "repos/$REPOSITORY/git/refs/heads/$BRANCH_NAME" --silent > /dev/null 2>&1; then
+    echo "Branch '$BRANCH_NAME' already exists"
+    # Set output for GitHub Actions
+    echo "created=false" >> "${GITHUB_OUTPUT:-/dev/null}"
+    exit 0
+fi
+
 # Determine the base ref
 if [ -n "${REF:-}" ]; then
     # Handle different ref formats
@@ -103,6 +112,8 @@ if gh api "repos/$REPOSITORY/git/refs" \
     -f ref="refs/heads/$BRANCH_NAME" \
     -f sha="$BASE_SHA" > /dev/null 2>&1; then
     echo "Successfully created branch '$BRANCH_NAME'"
+    # Set output for GitHub Actions
+    echo "created=true" >> "${GITHUB_OUTPUT:-/dev/null}"
 else
     echo "Error creating branch '$BRANCH_NAME'"
     # Try to get more detailed error information
