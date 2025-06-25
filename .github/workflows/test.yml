@@ -1,0 +1,84 @@
+name: Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test action - create new branch
+        id: test-create
+        uses: ./
+        with:
+          branch: test-branch-${{ github.run_number }}
+          ref: main
+
+      - name: Verify branch was created
+        if: steps.test-create.outputs.created != 'true'
+        run: |
+          echo "Expected created=true but got: ${{ steps.test-create.outputs.created }}"
+          exit 1
+
+      - name: Test action - branch already exists
+        id: test-exists
+        uses: ./
+        with:
+          branch: test-branch-${{ github.run_number }}
+          ref: main
+
+      - name: Verify branch already exists
+        if: steps.test-exists.outputs.created != 'false'
+        run: |
+          echo "Expected created=false but got: ${{ steps.test-exists.outputs.created }}"
+          exit 1
+
+      - name: Test with different ref
+        id: test-ref
+        uses: ./
+        with:
+          branch: test-from-sha-${{ github.run_number }}
+          ref: ${{ github.sha }}
+
+      - name: Verify branch from SHA was created
+        if: steps.test-ref.outputs.created != 'true'
+        run: |
+          echo "Expected created=true but got: ${{ steps.test-ref.outputs.created }}"
+          exit 1
+
+      - name: Cleanup test branches
+        if: always()
+        run: |
+          gh api repos/${{ github.repository }}/git/refs/heads/test-branch-${{ github.run_number }} -X DELETE || true
+          gh api repos/${{ github.repository }}/git/refs/heads/test-from-sha-${{ github.run_number }} -X DELETE || true
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint shell script
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          shellcheck entrypoint.sh
+
+      - name: Check action.yml syntax
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: action.yml
+          config_data: |
+            extends: default
+            rules:
+              line-length:
+                max: 120
