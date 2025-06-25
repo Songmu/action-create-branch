@@ -61,6 +61,7 @@ if [ "$IS_ABS_REF" = true ]; then
         --jq '.object.sha // empty')
 else
     # Build GraphQL query based on whether BASE_REF looks like a SHA
+    # shellcheck disable=SC2016 # GraphQL variables are intentionally not expanded
     COMMON_FIELDS='
                     branch: ref(qualifiedName: $branchRef) {
                         target { oid }
