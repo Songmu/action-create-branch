@@ -46,7 +46,7 @@ else
     # Get the default branch if no ref is specified
     DEFAULT_BRANCH=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
         "https://api.github.com/repos/$REPOSITORY" | \
-        grep '"default_branch":' | cut -d'"' -f4)
+        jq -r '.default_branch // empty')
     
     if [ -z "$DEFAULT_BRANCH" ]; then
         echo "Error: Could not determine default branch for repository '$REPOSITORY'"
@@ -63,7 +63,7 @@ if [ "$IS_ABS_REF" = true ]; then
     # For absolute refs, get the SHA directly from the full ref path
     BASE_SHA=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
         "https://api.github.com/repos/$REPOSITORY/git/$BASE_REF" | \
-        grep '"sha":' | cut -d'"' -f4)
+        jq -r '.object.sha // empty')
 else
     # Use GraphQL to check all possibilities in a single request
     GRAPHQL_RESPONSE=$(curl -s -H "Authorization: bearer $GITHUB_TOKEN" \
@@ -93,19 +93,14 @@ else
 EOF
 )
     
-    # Extract SHA from GraphQL response
-    # Try branch first
-    BASE_SHA=$(echo "$GRAPHQL_RESPONSE" | grep -o '"branch":{[^}]*"oid":"[^"]*"' | grep -o '"oid":"[^"]*"' | cut -d'"' -f4)
-    
-    # If not found as branch, try tag
-    if [ -z "$BASE_SHA" ]; then
-        BASE_SHA=$(echo "$GRAPHQL_RESPONSE" | grep -o '"tag":{[^}]*"oid":"[^"]*"' | grep -o '"oid":"[^"]*"' | cut -d'"' -f4)
-    fi
-    
-    # If still not found, try commit
-    if [ -z "$BASE_SHA" ]; then
-        BASE_SHA=$(echo "$GRAPHQL_RESPONSE" | grep -o '"commit":{[^}]*"oid":"[^"]*"' | grep -o '"oid":"[^"]*"' | cut -d'"' -f4)
-    fi
+    # Extract SHA from GraphQL response using jq
+    # Try branch first, then tag, then commit
+    BASE_SHA=$(echo "$GRAPHQL_RESPONSE" | jq -r '
+        .data.repository.branch.target.oid //
+        .data.repository.tag.target.oid //
+        .data.repository.commit.oid //
+        empty
+    ')
 fi
 
 if [ -z "$BASE_SHA" ]; then
@@ -122,9 +117,12 @@ RESPONSE=$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
     "https://api.github.com/repos/$REPOSITORY/git/refs")
 
 # Check if branch was created successfully
-if echo "$RESPONSE" | grep -q '"ref":'; then
+if echo "$RESPONSE" | jq -e '.ref' > /dev/null 2>&1; then
     echo "Successfully created branch '$BRANCH_NAME'"
 else
-    echo "Error creating branch. Response: $RESPONSE"
+    # Extract error message if available
+    ERROR_MESSAGE=$(echo "$RESPONSE" | jq -r '.message // "Unknown error"')
+    echo "Error creating branch: $ERROR_MESSAGE"
+    echo "Full response: $RESPONSE"
     exit 1
 fi
