@@ -1,23 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-if [ -z "${INPUT_TOKEN:-}" ]; then
-    echo "Error: INPUT_TOKEN is required"
-    exit 1
-fi
-
 # Set GH_TOKEN for gh command
 export GH_TOKEN="$INPUT_TOKEN"
-
-if [ -z "${INPUT_REPOSITORY:-}" ]; then
-    echo "Error: INPUT_REPOSITORY is required"
-    exit 1
-fi
-
-if [ -z "${INPUT_BRANCH:-}" ]; then
-    echo "Error: INPUT_BRANCH is required"
-    exit 1
-fi
 
 # Extract owner and repo from INPUT_REPOSITORY
 if [[ ! "$INPUT_REPOSITORY" =~ ^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$ ]]; then
@@ -58,12 +43,12 @@ else
     # Get the default branch if no ref is specified
     DEFAULT_BRANCH=$(gh api "repos/$INPUT_REPOSITORY" \
         --jq '.default_branch // empty')
-    
+
     if [ -z "$DEFAULT_BRANCH" ]; then
         echo "Error: Could not determine default branch for repository '$INPUT_REPOSITORY'"
         exit 1
     fi
-    
+
     BASE_REF="$DEFAULT_BRANCH"
     IS_ABS_REF=false
     echo "Creating branch '$INPUT_BRANCH' from default branch '$BASE_REF' in repository '$INPUT_REPOSITORY'"
