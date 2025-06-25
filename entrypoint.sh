@@ -6,6 +6,9 @@ if [ -z "${GITHUB_TOKEN:-}" ]; then
     exit 1
 fi
 
+# Set GH_TOKEN for gh command
+export GH_TOKEN="$GITHUB_TOKEN"
+
 if [ -z "${REPOSITORY:-}" ]; then
     echo "Error: REPOSITORY is required"
     exit 1
@@ -44,9 +47,8 @@ if [ -n "${REF:-}" ]; then
     echo "Creating branch '$BRANCH_NAME' from ref '$BASE_REF' in repository '$REPOSITORY'"
 else
     # Get the default branch if no ref is specified
-    DEFAULT_BRANCH=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-        "https://api.github.com/repos/$REPOSITORY" | \
-        jq -r '.default_branch // empty')
+    DEFAULT_BRANCH=$(gh api "repos/$REPOSITORY" \
+        --jq '.default_branch // empty')
     
     if [ -z "$DEFAULT_BRANCH" ]; then
         echo "Error: Could not determine default branch for repository '$REPOSITORY'"
@@ -61,46 +63,30 @@ fi
 # Get the SHA of the base ref
 if [ "$IS_ABS_REF" = true ]; then
     # For absolute refs, get the SHA directly from the full ref path
-    BASE_SHA=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-        "https://api.github.com/repos/$REPOSITORY/git/$BASE_REF" | \
-        jq -r '.object.sha // empty')
+    BASE_SHA=$(gh api "repos/$REPOSITORY/git/$BASE_REF" \
+        --jq '.object.sha // empty')
 else
     # Use GraphQL to check all possibilities in a single request
-    GRAPHQL_RESPONSE=$(curl -s -H "Authorization: bearer $GITHUB_TOKEN" \
-        -X POST https://api.github.com/graphql \
-        -d @- <<EOF
-{
-  "query": "query {
-    repository(owner: \"$OWNER\", name: \"$REPO\") {
-      branch: ref(qualifiedName: \"refs/heads/$BASE_REF\") {
-        target {
-          oid
-        }
-      }
-      tag: ref(qualifiedName: \"refs/tags/$BASE_REF\") {
-        target {
-          oid
-        }
-      }
-      commit: object(oid: \"$BASE_REF\") {
-        ... on Commit {
-          oid
-        }
-      }
-    }
-  }"
-}
-EOF
-)
-    
-    # Extract SHA from GraphQL response using jq
-    # Try branch first, then tag, then commit
-    BASE_SHA=$(echo "$GRAPHQL_RESPONSE" | jq -r '
-        .data.repository.branch.target.oid //
-        .data.repository.tag.target.oid //
-        .data.repository.commit.oid //
-        empty
-    ')
+    BASE_SHA=$(gh api graphql \
+        -f query='query($owner: String!, $repo: String!, $ref: String!, $branchRef: String!, $tagRef: String!) {
+            repository(owner: $owner, name: $repo) {
+                branch: ref(qualifiedName: $branchRef) {
+                    target { oid }
+                }
+                tag: ref(qualifiedName: $tagRef) {
+                    target { oid }
+                }
+                commit: object(oid: $ref) {
+                    ... on Commit { oid }
+                }
+            }
+        }' \
+        -f owner="$OWNER" \
+        -f repo="$REPO" \
+        -f ref="$BASE_REF" \
+        -f branchRef="refs/heads/$BASE_REF" \
+        -f tagRef="refs/tags/$BASE_REF" \
+        --jq '.data.repository.branch.target.oid // .data.repository.tag.target.oid // .data.repository.commit.oid // empty')
 fi
 
 if [ -z "$BASE_SHA" ]; then
@@ -111,18 +97,19 @@ fi
 echo "Base ref SHA: $BASE_SHA"
 
 # Create the new branch
-RESPONSE=$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
-    -H "Content-Type: application/json" \
-    -d "{\"ref\": \"refs/heads/$BRANCH_NAME\", \"sha\": \"$BASE_SHA\"}" \
-    "https://api.github.com/repos/$REPOSITORY/git/refs")
-
-# Check if branch was created successfully
-if echo "$RESPONSE" | jq -e '.ref' > /dev/null 2>&1; then
+echo "Creating branch with SHA: $BASE_SHA"
+if gh api "repos/$REPOSITORY/git/refs" \
+    --method POST \
+    -f ref="refs/heads/$BRANCH_NAME" \
+    -f sha="$BASE_SHA" > /dev/null 2>&1; then
     echo "Successfully created branch '$BRANCH_NAME'"
 else
-    # Extract error message if available
-    ERROR_MESSAGE=$(echo "$RESPONSE" | jq -r '.message // "Unknown error"')
-    echo "Error creating branch: $ERROR_MESSAGE"
-    echo "Full response: $RESPONSE"
+    echo "Error creating branch '$BRANCH_NAME'"
+    # Try to get more detailed error information
+    ERROR_RESPONSE=$(gh api "repos/$REPOSITORY/git/refs" \
+        --method POST \
+        -f ref="refs/heads/$BRANCH_NAME" \
+        -f sha="$BASE_SHA" 2>&1 || true)
+    echo "Error details: $ERROR_RESPONSE"
     exit 1
 fi
