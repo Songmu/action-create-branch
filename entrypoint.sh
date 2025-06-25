@@ -92,20 +92,20 @@ echo "Base ref SHA: $BASE_SHA"
 
 # Create the new branch
 echo "Creating branch with SHA: $BASE_SHA"
-if gh api "repos/$INPUT_REPOSITORY/git/refs" \
+RESPONSE=$(gh api "repos/$INPUT_REPOSITORY/git/refs" \
     --method POST \
     -f ref="refs/heads/$INPUT_BRANCH" \
-    -f sha="$BASE_SHA" > /dev/null 2>&1; then
+    -f sha="$BASE_SHA" 2>&1) || CREATE_FAILED=true
+
+if [ -z "${CREATE_FAILED:-}" ]; then
     echo "Successfully created branch '$INPUT_BRANCH'"
     # Set output for GitHub Actions
     echo "created=true" >> "${GITHUB_OUTPUT:-/dev/null}"
 else
     echo "Error creating branch '$INPUT_BRANCH'"
-    # Try to get more detailed error information
-    ERROR_RESPONSE=$(gh api "repos/$INPUT_REPOSITORY/git/refs" \
-        --method POST \
-        -f ref="refs/heads/$INPUT_BRANCH" \
-        -f sha="$BASE_SHA" 2>&1 || true)
-    echo "Error details: $ERROR_RESPONSE"
+    # Extract error message from response if possible
+    ERROR_MESSAGE=$(echo "$RESPONSE" | grep -o '"message":"[^"]*"' | cut -d'"' -f4 || echo "Unknown error")
+    echo "Error details: $ERROR_MESSAGE"
+    echo "Full response: $RESPONSE"
     exit 1
 fi
