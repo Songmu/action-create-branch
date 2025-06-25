@@ -144,24 +144,6 @@ The action will:
 - Fail with detailed error message if branch creation fails
 - Provide full API response for debugging
 
-## Comparison with Similar Actions
-
-| Feature | This Action | actions/checkout | peter-evans/create-pull-request |
-|---------|-------------|------------------|----------------------------------|
-| Create branch only | ✅ | ❌ | ❌ (creates PR) |
-| Cross-repository | ✅ | ❌ | ✅ |
-| Idempotent | ✅ | N/A | ✅ |
-| Any ref source | ✅ | ❌ | ✅ |
-| Lightweight | ✅ | ❌ | ❌ |
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test your changes
-5. Submit a pull request
-
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
