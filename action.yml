@@ -1,0 +1,32 @@
+name: 'Create Branch'
+description: 'Create a new branch in the specified repository'
+author: 'Songmu'
+branding:
+  icon: 'git-branch'
+  color: 'green'
+inputs:
+  token:
+    description: 'GitHub token with write access to the repository'
+    required: true
+  repository:
+    description: 'Repository name with owner. For example, actions/checkout'
+    required: false
+    default: ${{ github.repository }}
+  branch:
+    description: 'The name of the branch to create'
+    required: true
+  ref:
+    description: 'The ref (branch/tag/commit) to create the new branch from'
+    required: false
+    default: ${{ github.ref }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Create branch
+      shell: bash
+      run: ${{ github.action_path }}/entrypoint.sh
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        REPOSITORY: ${{ inputs.repository }}
+        BRANCH_NAME: ${{ inputs.branch }}
+        REF: ${{ inputs.ref }}
