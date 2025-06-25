@@ -65,23 +65,46 @@ if [ "$IS_ABS_REF" = true ]; then
         "https://api.github.com/repos/$REPOSITORY/git/$BASE_REF" | \
         grep '"sha":' | cut -d'"' -f4)
 else
-    # First, try to get it as a branch
-    BASE_SHA=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-        "https://api.github.com/repos/$REPOSITORY/git/refs/heads/$BASE_REF" | \
-        grep '"sha":' | cut -d'"' -f4)
-
-    # If not found as a branch, try as a tag
+    # Use GraphQL to check all possibilities in a single request
+    GRAPHQL_RESPONSE=$(curl -s -H "Authorization: bearer $GITHUB_TOKEN" \
+        -X POST https://api.github.com/graphql \
+        -d @- <<EOF
+{
+  "query": "query {
+    repository(owner: \"$OWNER\", name: \"$REPO\") {
+      branch: ref(qualifiedName: \"refs/heads/$BASE_REF\") {
+        target {
+          oid
+        }
+      }
+      tag: ref(qualifiedName: \"refs/tags/$BASE_REF\") {
+        target {
+          oid
+        }
+      }
+      commit: object(oid: \"$BASE_REF\") {
+        ... on Commit {
+          oid
+        }
+      }
+    }
+  }"
+}
+EOF
+)
+    
+    # Extract SHA from GraphQL response
+    # Try branch first
+    BASE_SHA=$(echo "$GRAPHQL_RESPONSE" | grep -o '"branch":{[^}]*"oid":"[^"]*"' | grep -o '"oid":"[^"]*"' | cut -d'"' -f4)
+    
+    # If not found as branch, try tag
     if [ -z "$BASE_SHA" ]; then
-        BASE_SHA=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.com/repos/$REPOSITORY/git/refs/tags/$BASE_REF" | \
-            grep '"sha":' | cut -d'"' -f4)
+        BASE_SHA=$(echo "$GRAPHQL_RESPONSE" | grep -o '"tag":{[^}]*"oid":"[^"]*"' | grep -o '"oid":"[^"]*"' | cut -d'"' -f4)
     fi
-
-    # If still not found, try as a commit SHA
+    
+    # If still not found, try commit
     if [ -z "$BASE_SHA" ]; then
-        COMMIT_RESPONSE=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.com/repos/$REPOSITORY/git/commits/$BASE_REF")
-        BASE_SHA=$(echo "$COMMIT_RESPONSE" | grep '"sha":' | head -n1 | cut -d'"' -f4)
+        BASE_SHA=$(echo "$GRAPHQL_RESPONSE" | grep -o '"commit":{[^}]*"oid":"[^"]*"' | grep -o '"oid":"[^"]*"' | cut -d'"' -f4)
     fi
 fi
 
